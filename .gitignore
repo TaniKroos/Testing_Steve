@@ -11,6 +11,13 @@ build/
 .env.*
 !.env.example
 
+# Local SQLite data and backups
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+backups/
+
 # Editor and OS files
 .DS_Store
 .vscode/
