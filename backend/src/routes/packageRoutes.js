@@ -1,20 +1,89 @@
+import { randomUUID } from "node:crypto";
 import { Router } from "express";
+import sanitizeHtml from "sanitize-html";
+import { authenticate, requireAdmin } from "../middleware/auth.js";
+import { validate } from "../middleware/validate.js";
 import { packageStore } from "../store/packageStore.js";
+import { bookingSchema, bookingStatusSchema, createPackageSchema, patchPackageSchema, updatePackageSchema } from "../validators/schemas.js";
 
 export const packageRouter = Router();
-const requiredFields = ["location", "country", "title", "duration", "price", "image", "description"];
-const textFields = ["category", "groupSize", "availability", "difficulty", "status"];
-const validStatuses = ["draft", "published", "archived"];
+const allowedSorts = new Set(["price", "rating", "createdAt", "updatedAt", "title"]);
+const stringFields = new Set(["title", "location", "country", "duration", "description", "category", "difficulty", "groupSize", "availability", "notes", "name"]);
 
-const splitList = (value) => Array.isArray(value) ? value.filter(Boolean) : String(value || "").split(",").map((item) => item.trim()).filter(Boolean);
-function validatePackage(body) { const missing = requiredFields.filter((field) => body[field] === undefined || body[field] === ""); if (missing.length) return `Missing required fields: ${missing.join(", ")}`; if (!Number.isFinite(Number(body.price)) || Number(body.price) < 0 || Number(body.discount || 0) < 0 || Number(body.discount || 0) > 100) return "Price must be positive and discount must be between 0 and 100."; if (body.status && !validStatuses.includes(body.status)) return "Status must be draft, published, or archived."; return null; }
-function normalisePackage(body) { return { ...body, price: Number(body.price), discount: Number(body.discount || 0), rating: Number(body.rating || 4.8), reviews: Number(body.reviews || 0), featured: Boolean(body.featured), highlights: splitList(body.highlights), inclusions: splitList(body.inclusions), itinerary: Array.isArray(body.itinerary) ? body.itinerary.filter((item) => item?.title) : [], departures: Array.isArray(body.departures) ? body.departures.filter((item) => item?.date).map((item) => ({ id: item.id || `dep-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: item.date, seats: Math.max(0, Number(item.seats || 0)) })) : [], ...Object.fromEntries(textFields.map((field) => [field, String(body[field] || (field === "status" ? "draft" : "")).trim()])) }; }
+function sanitise(value) {
+  if (Array.isArray(value)) return value.map(sanitise);
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, sanitise(entry)]));
+  return typeof value === "string" ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }).trim() : value;
+}
+function packageWhere(query, publishedOnly) {
+  const where = publishedOnly ? { status: "published" } : {};
+  if (query.category) where.category = String(query.category);
+  if (query.country) where.country = String(query.country);
+  if (query.search) where.OR = ["title", "location", "description"].map((field) => ({ [field]: { contains: String(query.search) } }));
+  return where;
+}
+function pagination(query) {
+  const page = Math.max(1, Number.parseInt(query.page, 10) || 1);
+  const limit = Math.min(100, Math.max(1, Number.parseInt(query.limit, 10) || 20));
+  const rawSort = String(query.sort || "-featured");
+  const key = rawSort.replace(/^-/, "");
+  const orderBy = allowedSorts.has(key) ? { [key]: rawSort.startsWith("-") ? "desc" : "asc" } : { featured: "desc" };
+  return { page, limit, orderBy };
+}
+async function listPackages(req, res, next, includeUnpublished = false) {
+  try {
+    const { page, limit, orderBy } = pagination(req.query);
+    const where = packageWhere(req.query, !includeUnpublished);
+    const [data, total] = await Promise.all([packageStore.list({ includeUnpublished, where, skip: (page - 1) * limit, take: limit, orderBy }), packageStore.count(where)]);
+    return res.json({ success: true, data, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+  } catch (error) { return next(error); }
+}
 
-packageRouter.get("/packages", (_req, res) => res.json(packageStore.list()));
-packageRouter.get("/packages/:id", (req, res) => { const item = packageStore.get(req.params.id); if (!item || item.status !== "published") return res.status(404).json({ message: "Package not found" }); return res.json(item); });
-packageRouter.get("/admin/packages", (_req, res) => res.json(packageStore.list({ includeUnpublished: true })));
-packageRouter.post("/admin/packages", (req, res) => { const error = validatePackage(req.body); if (error) return res.status(400).json({ message: error }); const item = { ...normalisePackage(req.body), id: `pkg-${Date.now()}` }; return res.status(201).json(packageStore.create(item)); });
-packageRouter.put("/admin/packages/:id", (req, res) => { const error = validatePackage(req.body); if (error) return res.status(400).json({ message: error }); const updated = packageStore.update(req.params.id, normalisePackage(req.body)); if (!updated) return res.status(404).json({ message: "Package not found" }); return res.json(updated); });
-packageRouter.delete("/admin/packages/:id", (req, res) => { const deleted = packageStore.remove(req.params.id); if (!deleted) return res.status(404).json({ message: "Package not found" }); return res.status(204).end(); });
-packageRouter.post("/booking-requests", (req, res) => { const { name, email, travellers, items } = req.body; if (!name || !email || !Array.isArray(items) || !items.length || Number(travellers) < 1) return res.status(400).json({ message: "Name, email, at least one traveller, and a basket item are required." }); const booking = { id: `booking-${Date.now()}`, name: String(name).trim(), email: String(email).trim(), travellers: Number(travellers), notes: String(req.body.notes || "").trim(), items, createdAt: new Date().toISOString(), status: "new" }; return res.status(201).json(packageStore.createBooking(booking)); });
-packageRouter.get("/admin/booking-requests", (_req, res) => res.json(packageStore.listBookings()));
+packageRouter.get("/packages", (req, res, next) => listPackages(req, res, next));
+packageRouter.get("/packages/:id", async (req, res, next) => {
+  try {
+    const item = await packageStore.get(req.params.id);
+    if (!item || item.status !== "published") return res.status(404).json({ success: false, error: { code: "PACKAGE_NOT_FOUND", message: "Package not found" } });
+    return res.json({ success: true, data: item });
+  } catch (error) { return next(error); }
+});
+
+packageRouter.use("/admin", authenticate, requireAdmin);
+packageRouter.get("/admin/packages", (req, res, next) => listPackages(req, res, next, true));
+packageRouter.post("/admin/packages", validate(createPackageSchema), async (req, res, next) => {
+  try { return res.status(201).json({ success: true, data: await packageStore.create(sanitise(req.body)) }); } catch (error) { return next(error); }
+});
+packageRouter.put("/admin/packages/:id", validate(updatePackageSchema), async (req, res, next) => {
+  try {
+    const item = await packageStore.update(req.params.id, sanitise(req.body));
+    return item ? res.json({ success: true, data: item }) : res.status(404).json({ success: false, error: { code: "PACKAGE_NOT_FOUND", message: "Package not found" } });
+  } catch (error) { return next(error); }
+});
+packageRouter.patch("/admin/packages/:id", validate(patchPackageSchema), async (req, res, next) => {
+  try {
+    const item = await packageStore.update(req.params.id, sanitise(req.body));
+    return item ? res.json({ success: true, data: item }) : res.status(404).json({ success: false, error: { code: "PACKAGE_NOT_FOUND", message: "Package not found" } });
+  } catch (error) { return next(error); }
+});
+packageRouter.delete("/admin/packages/:id", async (req, res, next) => {
+  try {
+    const item = await packageStore.remove(req.params.id);
+    return item ? res.status(204).end() : res.status(404).json({ success: false, error: { code: "PACKAGE_NOT_FOUND", message: "Package not found" } });
+  } catch (error) { return next(error); }
+});
+packageRouter.get("/admin/booking-requests", async (_req, res, next) => {
+  try { return res.json({ success: true, data: await packageStore.listBookings() }); } catch (error) { return next(error); }
+});
+packageRouter.patch("/admin/booking-requests/:id", validate(bookingStatusSchema), async (req, res, next) => {
+  try {
+    const item = await packageStore.updateBooking(req.params.id, req.body);
+    return item ? res.json({ success: true, data: item }) : res.status(404).json({ success: false, error: { code: "BOOKING_NOT_FOUND", message: "Booking request not found" } });
+  } catch (error) { return next(error); }
+});
+
+packageRouter.post("/booking-requests", validate(bookingSchema), async (req, res, next) => {
+  try {
+    const booking = { ...sanitise(req.body), id: `booking-${randomUUID()}`, status: "new" };
+    return res.status(201).json({ success: true, data: await packageStore.createBooking(booking) });
+  } catch (error) { return next(error); }
+});

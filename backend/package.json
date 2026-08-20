@@ -13,11 +13,14 @@
     "test": "vitest run",
     "test:watch": "vitest"
   },
-  "prisma": { "seed": "node prisma/seed.js" },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
   "dependencies": {
     "@prisma/client": "^6.19.1",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
     "express": "^4.22.2",
     "express-rate-limit": "^8.6.2",
     "helmet": "^8.3.0",
