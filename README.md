@@ -12,7 +12,8 @@ Travel Basket is a full-stack travel-package showcase and administration experie
 - Search and filter packages by destination, travel style, and discounted budget.
 - Save/unsave package shortlists in the browser using `localStorage`.
 - Package detail overlay with itinerary highlights, group size, availability, price, and discount.
-- Admin portal (`#admin`) for creating and editing journeys, categories, availability, discounts, and featured status.
+- Admin portal (`/admin`) for creating and editing journeys, categories, availability, discounts, and featured status.
+- React Router routes, React Query data caching, persistent Zustand basket state, loading skeletons, accessible forms, and polished motion preferences.
 - Seeded, in-memory backend API with a health endpoint for easy future database integration.
 
 ## Run locally
@@ -35,9 +36,10 @@ npm run server
 
 ## Routes
 
-- Traveller homepage: `/#discover`
-- Saved basket: `/#saved`
-- Admin portal: `/#admin`
+- Traveller homepage: `/`
+- Saved basket: `/basket`
+- Admin portal: `/admin`
+- Package deep-link shell: `/packages/:id`
 
 ## API
 
