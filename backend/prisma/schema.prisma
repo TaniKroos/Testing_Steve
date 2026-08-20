@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Package {
+  id           String   @id
+  title        String
+  location     String
+  country      String
+  duration     String
+  price        Float
+  discount     Float    @default(0)
+  rating       Float    @default(0)
+  reviews      Int      @default(0)
+  image        String
+  description  String
+  category     String   @default("")
+  difficulty   String   @default("")
+  groupSize    String   @default("")
+  availability String   @default("")
+  featured     Boolean  @default(false)
+  status       String   @default("draft")
+  highlights   String   @default("[]")
+  inclusions   String   @default("[]")
+  itinerary    String   @default("[]")
+  departures   String   @default("[]")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model BookingRequest {
+  id         String   @id
+  name       String
+  email      String
+  travellers Int
+  notes      String   @default("")
+  items      String   @default("[]")
+  status     String   @default("new")
+  createdAt  DateTime @default(now())
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  role      String   @default("admin")
+  createdAt DateTime @default(now())
+}
