@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Router } from "express";
 import sanitizeHtml from "sanitize-html";
 import { authenticate, requireAdmin } from "../middleware/auth.js";
+import { verifyOrigin } from "../config/security.js";
 import { validate } from "../middleware/validate.js";
 import { packageStore } from "../store/packageStore.js";
 import { bookingSchema, bookingStatusSchema, createPackageSchema, patchPackageSchema, updatePackageSchema } from "../validators/schemas.js";
@@ -49,6 +50,7 @@ packageRouter.get("/packages/:id", async (req, res, next) => {
 });
 
 packageRouter.use("/admin", authenticate, requireAdmin);
+packageRouter.use("/admin", (req, res, next) => ["POST", "PUT", "PATCH", "DELETE"].includes(req.method) ? verifyOrigin(req, res, next) : next());
 packageRouter.get("/admin/packages", (req, res, next) => listPackages(req, res, next, true));
 packageRouter.post("/admin/packages", validate(createPackageSchema), async (req, res, next) => {
   try { return res.status(201).json({ success: true, data: await packageStore.create(sanitise(req.body)) }); } catch (error) { return next(error); }
