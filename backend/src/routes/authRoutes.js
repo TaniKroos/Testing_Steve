@@ -9,7 +9,7 @@ import { loginSchema } from "../validators/schemas.js";
 export const authRouter = Router();
 export const loginRouter = Router();
 
-loginRouter.post("/login", validate(loginSchema), async (req, res, next) => {
+loginRouter.post("/", validate(loginSchema), async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({ where: { email: req.body.email } });
     if (!user || !(await bcrypt.compare(req.body.password, user.password))) {
