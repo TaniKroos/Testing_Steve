@@ -7,6 +7,53 @@ import { validate } from "../middleware/validate.js";
 import { packageStore } from "../store/packageStore.js";
 import { bookingSchema, bookingStatusSchema, createPackageSchema, patchPackageSchema, updatePackageSchema } from "../validators/schemas.js";
 
+/**
+ * @openapi
+ * /packages:
+ *   get:
+ *     summary: List published journey packages
+ *     responses:
+ *       200:
+ *         description: Paginated journey list
+ * /booking-requests:
+ *   post:
+ *     summary: Submit a booking request
+ *     responses:
+ *       201:
+ *         description: Booking request created
+ * /admin/packages:
+ *   get:
+ *     summary: List all journeys for staff
+ *     security: [{ cookieAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: Staff journey list
+ *   post:
+ *     summary: Create a journey
+ *     security: [{ cookieAuth: [] }]
+ *     responses:
+ *       201:
+ *         description: Journey created
+ * /admin/booking-requests:
+ *   get:
+ *     summary: List booking requests for staff
+ *     security: [{ cookieAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: Booking request list
+ * /admin/booking-requests/{id}:
+ *   patch:
+ *     summary: Update a booking request status
+ *     security: [{ cookieAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Booking request updated
+ */
 export const packageRouter = Router();
 const allowedSorts = new Set(["price", "rating", "createdAt", "updatedAt", "title"]);
 const stringFields = new Set(["title", "location", "country", "duration", "description", "category", "difficulty", "groupSize", "availability", "notes", "name"]);

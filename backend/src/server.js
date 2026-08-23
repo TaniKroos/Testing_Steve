@@ -21,7 +21,7 @@ jwtSecret();
 const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 100, standardHeaders: "draft-8", legacyHeaders: false, message: { success: false, error: { code: "RATE_LIMITED", message: "Too many requests, please try again later" } } });
 const bookingLimiter = rateLimit({ windowMs: 60 * 60 * 1000, limit: 10, standardHeaders: "draft-8", legacyHeaders: false, message: { success: false, error: { code: "BOOKING_RATE_LIMITED", message: "Too many booking attempts, please try again later" } } });
 const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: "draft-8", legacyHeaders: false, message: { success: false, error: { code: "LOGIN_RATE_LIMITED", message: "Too many login attempts, please try again later" } } });
-const swagger = swaggerJSDoc({ definition: { openapi: "3.0.3", info: { title: "Travel Basket API", version: "1.1.0" }, components: { securitySchemes: { bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" } } } }, apis: [] });
+const swagger = swaggerJSDoc({ definition: { openapi: "3.0.3", info: { title: "Travel Basket API", version: "1.1.0", description: "API for published journeys, booking requests, and staff administration." }, components: { securitySchemes: { cookieAuth: { type: "apiKey", in: "cookie", name: "tb_session" } } } }, apis: ["./src/routes/*.js"] });
 
 app.disable("x-powered-by");
 app.use((req, res, next) => { req.id = randomUUID(); res.setHeader("X-Request-Id", req.id); next(); });
