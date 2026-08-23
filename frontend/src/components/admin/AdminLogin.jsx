@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../api";
 import { useAuthStore } from "../../stores/authStore";
@@ -11,6 +11,10 @@ export default function AdminLogin() {
   const [credentials, setCredentials] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  useEffect(() => {
+    const dark = localStorage.getItem("travel-basket-theme") === "dark" || (!localStorage.getItem("travel-basket-theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
+  }, []);
 
   const submit = async (event) => {
     event.preventDefault();
