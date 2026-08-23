@@ -12,5 +12,7 @@ export const api = {
   listPackages: () => request("/packages?limit=100"), listAdminPackages: () => request("/admin/packages?limit=100"),
   savePackage: (item, id) => request(`/admin/packages${id ? `/${id}` : ""}`, { method: id ? "PUT" : "POST", body: JSON.stringify(item) }),
   deletePackage: (id) => request(`/admin/packages/${id}`, { method: "DELETE" }),
+  listAdminBookings: () => request("/admin/booking-requests"),
+  updateBookingStatus: (id, status) => request(`/admin/booking-requests/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
   submitBooking: (booking) => request("/booking-requests", { method: "POST", body: JSON.stringify(booking) }),
 };

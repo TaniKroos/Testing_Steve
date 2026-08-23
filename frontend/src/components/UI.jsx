@@ -3,7 +3,20 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "./Icon";
 
 export function useReveal() {
-  useEffect(() => { const nodes = document.querySelectorAll("[data-reveal]"); const observer = new IntersectionObserver((entries) => entries.forEach((entry) => { if (entry.isIntersecting) { entry.target.classList.add("is-visible"); observer.unobserve(entry.target); } }), { threshold: 0.12 }); nodes.forEach((node) => observer.observe(node)); return () => observer.disconnect(); }, []);
+  useEffect(() => {
+    const nodes = document.querySelectorAll("[data-reveal]");
+    const revealVisible = () => nodes.forEach((node) => {
+      const bounds = node.getBoundingClientRect();
+      if (bounds.top < window.innerHeight + 160 && bounds.bottom > -160) node.classList.add("is-visible");
+    });
+    const observer = new IntersectionObserver((entries) => entries.forEach((entry) => {
+      if (entry.isIntersecting) { entry.target.classList.add("is-visible"); observer.unobserve(entry.target); }
+    }), { threshold: 0.12 });
+    nodes.forEach((node) => observer.observe(node));
+    revealVisible();
+    const timeout = window.setTimeout(() => nodes.forEach((node) => node.classList.add("is-visible")), 700);
+    return () => { window.clearTimeout(timeout); observer.disconnect(); };
+  }, []);
 }
 export function Toast({ message, clear }) {
   useEffect(() => { if (!message) return undefined; const timeout = window.setTimeout(clear, 3600); return () => window.clearTimeout(timeout); }, [message, clear]);
